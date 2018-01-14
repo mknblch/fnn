@@ -128,7 +128,7 @@ public class Trainer extends FFN {
     }
 
     /**
-     * appends deltas of hidden layers to the delta array
+     * appends deltas of hidden layers (if any) to the delta array
      * @param delta the delta array
      */
     private void calcHiddenDeltas(double[][] delta) {
@@ -136,15 +136,12 @@ public class Trainer extends FFN {
             final Layer layer = layers[l];
             final Layer next = layers[l + 1];
             delta[l] = new double[layer.values.length];
-            final double[] values = layer.values;
-            final double[] nextValues = next.values;
-            final double[] nextWeights = next.weights;
-            for (int j = 0; j < values.length; j++) {
+            for (int j = 0; j < layer.values.length; j++) {
                 double t = 0;
-                for (int i = 0; i < nextValues.length; i++) {
-                    t += delta[l + 1][i] * nextWeights[i * values.length + j];
+                for (int i = 0; i < next.values.length; i++) {
+                    t += delta[l + 1][i] * next.weights[i * layer.values.length + j];
                 }
-                delta[l][j] = values[j] * (1.0 - values[j]) * t;
+                delta[l][j] = layer.values[j] * (1.0 - layer.values[j]) * t;
             }
         }
     }
@@ -158,17 +155,18 @@ public class Trainer extends FFN {
             final Layer layer = layers[k];
             final Layer previous = layers[k - 1];
             for (int i = 0; i < layer.values.length; i++) {
+                final double fc = -rate * delta[k][i];
                 for (int j = 0; j < previous.values.length; j++) {
                     final int index = j * layer.values.length + i;
-                    layer.weights[index] += -rate * delta[k][i] * previous.values[j];
+                    layer.weights[index] += fc * previous.values[j];
                 }
-                layer.bias[i] += -rate * delta[k][i];
+                layer.bias[i] += fc;
             }
         }
     }
 
     /**
-     * TrainableFNN builder to ease setup and addition of hidden layers.
+     * builder to ease setup and addition of hidden layers.
      */
     public static class Builder {
 
