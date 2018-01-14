@@ -1,13 +1,13 @@
-package de.mknblch.nnet;
+package de.mknblch.fnn;
 
 import org.junit.Test;
-import static de.mknblch.nnet.DataSets.*;
+import static de.mknblch.fnn.TestData.*;
 import static org.junit.Assert.*;
 
 /**
  * @author mknblch
  */
-public class NetTest {
+public class FNNTest {
 
     public static final double RATE = 0.3;
     public static final long RANDOM_SEED = 42L;
@@ -19,7 +19,7 @@ public class NetTest {
      */
     @Test
     public void testXOR() throws Exception {
-        final FeedForwardNetwork net = train(true, XOR);
+        final FFN net = train(true, XOR);
         evalBinary(net, XOR);
     }
 
@@ -28,7 +28,7 @@ public class NetTest {
      */
     @Test
     public void testEQ() throws Exception {
-        final FeedForwardNetwork net = train(true, EQ);
+        final FFN net = train(true, EQ);
         evalBinary(net, EQ);
     }
 
@@ -37,7 +37,7 @@ public class NetTest {
      */
     @Test
     public void testAND() throws Exception {
-        final FeedForwardNetwork net = train(false, AND);
+        final FFN net = train(false, AND);
         evalBinary(net, AND);
     }
 
@@ -46,7 +46,7 @@ public class NetTest {
      */
     @Test
     public void testOR() throws Exception {
-        final FeedForwardNetwork net = train(false, OR);
+        final FFN net = train(false, OR);
         evalBinary(net, OR);
     }
 
@@ -55,12 +55,23 @@ public class NetTest {
      */
     @Test
     public void testIMP() throws Exception {
-        final FeedForwardNetwork net = train(false, IMP);
+        final FFN net = train(false, IMP);
         evalBinary(net, IMP);
     }
 
-    private static FeedForwardNetwork train(boolean hiddenLayer, DataSet dataSet) {
-        final TrainableNetwork.Builder trainer = TrainableNetwork
+    /**
+     * XOR can't be trained without hidden layer
+     */
+    @Test(expected = IllegalStateException.class)
+    public void testNotTrainable() throws Exception {
+        Trainer.builder(2, 1)
+                .withLearningRate(RATE)
+                .build()
+                .train(XOR, 0.1, 10_000);
+    }
+
+    private static FFN train(boolean hiddenLayer, DataSet dataSet) {
+        final Trainer.Builder trainer = Trainer
                 .builder(2, 1)
                 .withLearningRate(RATE);
 
@@ -76,11 +87,11 @@ public class NetTest {
     /**
      * check if the network verifies the data set
      */
-    public static void evalBinary(FeedForwardNetwork network, DataSet dataSet) {
+    public static void evalBinary(FFN network, DataSet dataSet) {
         final double[][] input = dataSet.inputs();
         final double[][] expected = dataSet.expected();
         for (int i = 0; i < input.length; i++) {
-            final double[] output = network.feed(input[i]);
+            final double[] output = network.eval(input[i]);
             for (int j = 0; j < output.length; j++) {
                 if (Math.abs(output[j] - expected[i][j]) > 0.5) {
                     fail("Network did not match");

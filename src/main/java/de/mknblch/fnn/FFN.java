@@ -1,21 +1,22 @@
-package de.mknblch.nnet;
+package de.mknblch.fnn;
 
 import java.util.Arrays;
 
 /**
- * Simple Feed Forward Network
+ * Feedforward Network
+ *
  * @author mknblch
  */
-public class FeedForwardNetwork {
+public class FFN {
 
     // layer array including input and output layers
     final Layer[] layers;
 
     /**
-     * build a network with (2 or more) layers
+     * build a network with given (2 or more) layers
      * @param layers the network layers
      */
-    FeedForwardNetwork(Layer[] layers) {
+    FFN(Layer[] layers) {
         this.layers = layers;
     }
 
@@ -32,7 +33,7 @@ public class FeedForwardNetwork {
      * @param input the input values
      * @return output of the network
      */
-    public double[] feed(double[] input) {
+    public double[] eval(double[] input) {
         layers[0].values = input;
         for (int i = 1; i < layers.length; i++) {
             forward(i);
@@ -73,29 +74,29 @@ public class FeedForwardNetwork {
     }
 
     /**
-     * do feed forward step for the given layer
+     * do eval forward step for the given layer
      * @param layer the index of the layer
      */
     private void forward(int layer) {
-        final double[] precursor = layers[layer - 1].values;
-        final double[] weights = layers[layer].weights;
-        final double[] values = layers[layer].values;
         final double[] bias = layers[layer].bias;
+        final double[] values = layers[layer].values;
+        final double[] weights = layers[layer].weights;
+        final double[] precursor = layers[layer - 1].values;
         Arrays.setAll(values, j -> {
             double t = bias[j];
             for (int i = 0; i < precursor.length; i++) {
                 t += precursor[i] * weights[i * values.length + j];
             }
-            return sigmoid(t);
+            return sig(t);
         });
     }
 
     /**
      * sigmoid function
      * @param x parameter
-     * @return the sigmoid of x
+     * @return sig(x)
      */
-    private static double sigmoid(double x) {
+    private static double sig(double x) {
         return 1.0 / (1.0 + Math.exp(-x));
     }
 

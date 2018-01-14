@@ -1,4 +1,4 @@
-package de.mknblch.nnet;
+package de.mknblch.fnn;
 
 /**
  * basic training data set

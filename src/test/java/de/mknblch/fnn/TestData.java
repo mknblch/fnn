@@ -1,11 +1,9 @@
-package de.mknblch.nnet;
-
-import de.mknblch.nnet.DataSet;
+package de.mknblch.fnn;
 
 /**
  * @author mknblch
  */
-public class DataSets {
+public class TestData {
 
     public static final double[][] INPUTS = {
             new double[]{0.0, 0.0},
