@@ -1,4 +1,4 @@
-package de.mknblch.nnet;
+package de.mknblch.fnn;
 
 import java.security.SecureRandom;
 import java.util.ArrayList;
@@ -10,7 +10,7 @@ import java.util.List;
  *
  * @author mknblch
  */
-public class TrainableNetwork extends FeedForwardNetwork {
+public class Trainer extends FFN {
 
     // layer array including input and output layers
     private final Layer[] layers;
@@ -29,7 +29,7 @@ public class TrainableNetwork extends FeedForwardNetwork {
         return new Builder(inputs, outputs);
     }
 
-    private TrainableNetwork(Layer[] layers, double rate) {
+    private Trainer(Layer[] layers, double rate) {
         super(layers);
         this.layers = layers;
         this.rate = rate;
@@ -47,20 +47,20 @@ public class TrainableNetwork extends FeedForwardNetwork {
     /**
      * train the network with the given parameters
      * @param dataSet the dataSet
-     * @param convergenceError error threshold for convergence
+     * @param converge error threshold for convergence
      * @param maxIterations maximum count of iterations before Exception is thrown
      * @return itself for method chaining
      * @throws IllegalStateException if iteration limit exceeds
      */
-    public TrainableNetwork train(DataSet dataSet, double convergenceError, int maxIterations) {
+    public Trainer train(DataSet dataSet, double converge, int maxIterations) {
         final double[][] inputs = dataSet.inputs();
         final double[][] expected = dataSet.expected();
         for (iterations = 0; iterations < maxIterations; iterations++) {
-            if (train(inputs, expected) <= convergenceError) {
+            if (train(inputs, expected) <= converge) {
                 return this;
             }
         }
-        throw new IllegalStateException("Unable to learn in " + maxIterations + " iterations");
+        throw new IllegalStateException("Network did not converge in " + maxIterations + " iterations");
     }
 
     /**
@@ -84,7 +84,7 @@ public class TrainableNetwork extends FeedForwardNetwork {
      * @return error of last layer
      */
     public double train(double[] input, double[] expected) {
-        feed(input);
+        eval(input);
         backward(expected);
         return error(layers[layers.length - 1].values, expected);
     }
@@ -104,23 +104,34 @@ public class TrainableNetwork extends FeedForwardNetwork {
     }
 
     /**
-     * back propagation
+     * backpropagation
+     * @param expected expected values
+     * @return deltas
+     */
+    private double[][] backward(double[] expected) {
+        final double[][] deltas = new double[layers.length][];
+        calcOutputDeltas(deltas, expected);
+        calcHiddenDeltas(deltas);
+        update(deltas);
+        return deltas;
+    }
+
+    /**
+     * append deltas of the output layer to the delta array
+     * @param delta the delta array
      * @param expected expected values
      */
-    private void backward(double[] expected) {
-
-        double[][] delta = new double[layers.length][];
+    private void calcOutputDeltas(double[][] delta, double[] expected) {
         final double[] outValues = layers[layers.length - 1].values;
         delta[layers.length - 1] = new double[outValues.length];
-        final double[] outputDelta = delta[layers.length - 1];
+        Arrays.setAll(delta[layers.length - 1], i -> outValues[i] * (1.0 - outValues[i]) * (outValues[i] - expected[i]));
+    }
 
-        // calc output deltas
-        for (int i = 0; i < outValues.length; i++) {
-            final double v = outValues[i];
-            outputDelta[i] = v * (1.0 - v) * (v - expected[i]);
-        }
-
-        // calc hidden deltas
+    /**
+     * appends deltas of hidden layers to the delta array
+     * @param delta the delta array
+     */
+    private void calcHiddenDeltas(double[][] delta) {
         for (int l = layers.length - 2; l >= 1; l--) {
             final Layer layer = layers[l];
             final Layer next = layers[l + 1];
@@ -136,8 +147,13 @@ public class TrainableNetwork extends FeedForwardNetwork {
                 delta[l][j] = values[j] * (1.0 - values[j]) * t;
             }
         }
+    }
 
-        // update
+    /**
+     * update weights and biases
+     * @param delta completely calculated delta array
+     */
+    private void update(double[][] delta) {
         for (int k = 1; k < layers.length; k++) {
             final Layer layer = layers[k];
             final Layer previous = layers[k - 1];
@@ -152,7 +168,7 @@ public class TrainableNetwork extends FeedForwardNetwork {
     }
 
     /**
-     * Basic Builder class for a Trainer
+     * TrainableFNN builder to ease setup and addition of hidden layers.
      */
     public static class Builder {
 
@@ -198,23 +214,23 @@ public class TrainableNetwork extends FeedForwardNetwork {
 
         /**
          * build a trainable network
-         * @return a trainable feed forward network
+         * @return a trainable eval forward network
          */
-        public TrainableNetwork build() {
+        public Trainer build() {
             return build(System.currentTimeMillis());
         }
 
         /**
          * build a trainable network
          * @param randomSeed seed value for weight randomization or -1L to skip
-         * @return a trainable feed forward network
+         * @return a trainable eval forward network
          */
-        public TrainableNetwork build(long randomSeed) {
+        public Trainer build(long randomSeed) {
             addHiddenLayer(outputSize);
             if (randomSeed != -1L) {
                 initialize(randomSeed);
             }
-            return new TrainableNetwork(this.layers.toArray(new Layer[0]), learningRate);
+            return new Trainer(this.layers.toArray(new Layer[0]), learningRate);
         }
 
         /**
@@ -236,8 +252,7 @@ public class TrainableNetwork extends FeedForwardNetwork {
             );
 
             for (int i = 1; i < layers.size(); i++) {
-                final double[] weights = layers.get(i).weights;
-                Arrays.setAll(weights, k -> 1.0 - random.nextDouble() * 2.0);
+                Arrays.setAll(layers.get(i).weights, k -> 1.0 - random.nextDouble() * 2.0);
             }
         }
     }
