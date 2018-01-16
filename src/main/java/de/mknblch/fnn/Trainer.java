@@ -17,11 +17,11 @@ public class Trainer extends FFN {
     // layer array including input and output layers
     private final Layer[] layers;
     // learning rate
-    private double rate = 0.1;
+    private final double rate;
     // number of iterations the training took
     private int iterations = -1;
 
-    private DoubleUnaryOperator rateFunction = v -> 0.1;
+    private double[][] delta;
 
     /**
      * create a new Builder
@@ -37,6 +37,7 @@ public class Trainer extends FFN {
         super(layers);
         this.layers = layers;
         this.rate = rate;
+        this.delta = new double[layers.length][];
     }
 
     /**
@@ -59,10 +60,11 @@ public class Trainer extends FFN {
     public Trainer train(DataSet dataSet, double converge, int maxIterations) {
         final double[][] inputs = dataSet.inputs();
         final double[][] expected = dataSet.expected();
+        double lastError = 0.0;
         for (iterations = 0; iterations < maxIterations; iterations++) {
-            final double train = train(inputs, expected);
-            System.out.println("error = " + train);
-            if (train <= converge) {
+            final double error = train(inputs, expected);
+            System.out.println("error = " + error);
+            if (error <= converge) {
                 return this;
             }
         }
@@ -79,9 +81,9 @@ public class Trainer extends FFN {
     public double train(double[][] input, double[][] expected) {
         double error = 0;
         for (int i = 0; i < input.length; i++) {
-            error = Math.max(error, train(input[i], expected[i]));
+            error += train(input[i], expected[i]);
         }
-        return error;
+        return error / input.length;
     }
 
     /**
@@ -116,19 +118,17 @@ public class Trainer extends FFN {
      * @return deltas
      */
     private double[][] backward(double[] expected) {
-        final double[][] deltas = new double[layers.length][];
-        calcOutputDeltas(deltas, expected);
-        calcHiddenDeltas(deltas);
-        update(deltas);
-        return deltas;
+        calcOutputDeltas(expected);
+        calcHiddenDeltas();
+        update();
+        return delta;
     }
 
     /**
      * append deltas of the output layer to the delta array
-     * @param delta the delta array
      * @param expected expected values
      */
-    private void calcOutputDeltas(double[][] delta, double[] expected) {
+    private void calcOutputDeltas(double[] expected) {
         final double[] outValues = layers[layers.length - 1].values;
         delta[layers.length - 1] = new double[outValues.length];
         Arrays.setAll(delta[layers.length - 1], i -> outValues[i] * (1.0 - outValues[i]) * (outValues[i] - expected[i]));
@@ -136,9 +136,8 @@ public class Trainer extends FFN {
 
     /**
      * appends deltas of hidden layers (if any) to the delta array
-     * @param delta the delta array
      */
-    private void calcHiddenDeltas(double[][] delta) {
+    private void calcHiddenDeltas() {
         for (int l = layers.length - 2; l >= 1; l--) {
             final Layer layer = layers[l];
             final Layer next = layers[l + 1];
@@ -155,9 +154,8 @@ public class Trainer extends FFN {
 
     /**
      * update weights and biases
-     * @param delta completely calculated delta array
      */
-    private void update(double[][] delta) {
+    private void update() {
         for (int k = 1; k < layers.length; k++) {
             final Layer layer = layers[k];
             final Layer previous = layers[k - 1];

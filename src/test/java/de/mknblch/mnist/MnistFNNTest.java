@@ -22,15 +22,16 @@ public class MnistFNNTest {
     public void test() throws Exception {
 
         final Trainer trainer = Trainer.builder(28 * 28, 10)
-                .withLearningRate(1)
-                .addHiddenLayer(1000)
-                .addHiddenLayer(500)
+                .withLearningRate(.03)
+                .addHiddenLayer(1024)
+                .addHiddenLayer(512)
+                .addHiddenLayer(256)
                 .build(42L);
 
         final MnistDataSets dataSets = new MnistDataSets(IMAGE_PATH, LABEL_PATH);
 
-        final DataSet dataSet = dataSets.create(100);
-        final FFN net = trainer.train(dataSet, 0.01, 100);
+        final DataSet dataSet = dataSets.create(10);
+        final FFN net = trainer.train(dataSet, 0.01, 1000);
 
         matchUnknown(dataSets, net);
 //        matchKnown(dataSet, net);

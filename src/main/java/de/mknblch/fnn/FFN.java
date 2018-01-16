@@ -82,7 +82,7 @@ public class FFN {
         final double[] values = layers[layer].values;
         final double[] weights = layers[layer].weights;
         final double[] precursor = layers[layer - 1].values;
-        Arrays.setAll(values, j -> {
+        Arrays.parallelSetAll(values, j -> {
             double t = bias[j];
             for (int i = 0; i < precursor.length; i++) {
                 t += precursor[i] * weights[i * values.length + j];
