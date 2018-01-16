@@ -127,7 +127,6 @@ public class FFN {
      * @return sig(x)
      */
     private static double sig(double x) {
-//        return Math.max(0, x);
         return 1.0 / (1.0 + Math.exp(-x));
     }
 

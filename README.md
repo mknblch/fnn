@@ -22,7 +22,3 @@ with back-propagation to recap some AI knowledge.
 ```
 
 Additional examples can be found in the unit tests.
-
-## ToDo
-
-- `Trainer.error(..)` might be buggy.

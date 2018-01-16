@@ -81,7 +81,6 @@ public class Trainer extends FFN {
                 return this;
             }
         }
-//        return this;
         throw new IllegalStateException("Network did not converge in " + maxIterations + " iterations");
     }
 
