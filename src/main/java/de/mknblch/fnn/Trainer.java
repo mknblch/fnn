@@ -4,6 +4,8 @@ import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.function.DoubleBinaryOperator;
+import java.util.function.DoubleUnaryOperator;
 
 /**
  * Trainable Network
@@ -15,9 +17,11 @@ public class Trainer extends FFN {
     // layer array including input and output layers
     private final Layer[] layers;
     // learning rate
-    private final double rate;
+    private double rate = 0.1;
     // number of iterations the training took
     private int iterations = -1;
+
+    private DoubleUnaryOperator rateFunction = v -> 0.1;
 
     /**
      * create a new Builder
@@ -56,11 +60,14 @@ public class Trainer extends FFN {
         final double[][] inputs = dataSet.inputs();
         final double[][] expected = dataSet.expected();
         for (iterations = 0; iterations < maxIterations; iterations++) {
-            if (train(inputs, expected) <= converge) {
+            final double train = train(inputs, expected);
+            System.out.println("error = " + train);
+            if (train <= converge) {
                 return this;
             }
         }
-        throw new IllegalStateException("Network did not converge in " + maxIterations + " iterations");
+        return this;
+//        throw new IllegalStateException("Network did not converge in " + maxIterations + " iterations");
     }
 
     /**
@@ -72,7 +79,7 @@ public class Trainer extends FFN {
     public double train(double[][] input, double[][] expected) {
         double error = 0;
         for (int i = 0; i < input.length; i++) {
-            error += train(input[i], expected[i]);
+            error = Math.max(error, train(input[i], expected[i]));
         }
         return error;
     }

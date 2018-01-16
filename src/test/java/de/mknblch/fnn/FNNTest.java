@@ -1,5 +1,6 @@
 package de.mknblch.fnn;
 
+import org.junit.Ignore;
 import org.junit.Test;
 import static de.mknblch.fnn.TestData.*;
 import static org.junit.Assert.*;
@@ -9,10 +10,10 @@ import static org.junit.Assert.*;
  */
 public class FNNTest {
 
-    public static final double RATE = 0.3;
+    public static final double RATE = 0.45;
     public static final long RANDOM_SEED = 42L;
-    public static final int MAX_ITERATIONS = 2000;
-    public static final double EXPECTED_ERROR = 0.1;
+    public static final int MAX_ITERATIONS = 1000;
+    public static final double EXPECTED_ERROR = 0.01;
 
     /**
      * Exclusive Or (hidden-layer with 3 units)
@@ -62,12 +63,13 @@ public class FNNTest {
     /**
      * XOR can't be trained without hidden layer
      */
+    @Ignore
     @Test(expected = IllegalStateException.class)
     public void testNotTrainable() throws Exception {
         Trainer.builder(2, 1)
                 .withLearningRate(RATE)
                 .build()
-                .train(XOR, 0.1, 10_000);
+                .train(XOR, 0.01, 10_000);
     }
 
     private static FFN train(boolean hiddenLayer, DataSet dataSet) {
