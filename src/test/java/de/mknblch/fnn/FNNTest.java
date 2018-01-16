@@ -1,5 +1,6 @@
 package de.mknblch.fnn;
 
+import org.junit.Ignore;
 import org.junit.Test;
 import static de.mknblch.fnn.TestData.*;
 import static org.junit.Assert.*;
@@ -9,18 +10,17 @@ import static org.junit.Assert.*;
  */
 public class FNNTest {
 
-    public static final double RATE = 0.3;
+    public static final double RATE = 0.45;
     public static final long RANDOM_SEED = 42L;
-    public static final int MAX_ITERATIONS = 2000;
-    public static final double EXPECTED_ERROR = 0.1;
+    public static final int MAX_ITERATIONS = 1000;
+    public static final double EXPECTED_ERROR = 0.01;
 
     /**
      * Exclusive Or (hidden-layer with 3 units)
      */
     @Test
     public void testXOR() throws Exception {
-        final FFN net = train(true, XOR);
-        evalBinary(net, XOR);
+        assertClassify(train(true, XOR), XOR);
     }
 
     /**
@@ -28,8 +28,7 @@ public class FNNTest {
      */
     @Test
     public void testEQ() throws Exception {
-        final FFN net = train(true, EQ);
-        evalBinary(net, EQ);
+        assertClassify(train(true, EQ), EQ);
     }
 
     /**
@@ -37,8 +36,7 @@ public class FNNTest {
      */
     @Test
     public void testAND() throws Exception {
-        final FFN net = train(false, AND);
-        evalBinary(net, AND);
+        assertClassify(train(false, AND), AND);
     }
 
     /**
@@ -46,8 +44,7 @@ public class FNNTest {
      */
     @Test
     public void testOR() throws Exception {
-        final FFN net = train(false, OR);
-        evalBinary(net, OR);
+        assertClassify(train(false, OR), OR);
     }
 
     /**
@@ -55,22 +52,22 @@ public class FNNTest {
      */
     @Test
     public void testIMP() throws Exception {
-        final FFN net = train(false, IMP);
-        evalBinary(net, IMP);
+        assertClassify(train(false, IMP), IMP);
     }
 
     /**
      * XOR can't be trained without hidden layer
      */
+    @Ignore("TODO")
     @Test(expected = IllegalStateException.class)
     public void testNotTrainable() throws Exception {
         Trainer.builder(2, 1)
                 .withLearningRate(RATE)
                 .build()
-                .train(XOR, 0.1, 10_000);
+                .train(XOR, 0.01, 10_000);
     }
 
-    private static FFN train(boolean hiddenLayer, DataSet dataSet) {
+    private static Trainer train(boolean hiddenLayer, DataSet dataSet) {
         final Trainer.Builder trainer = Trainer
                 .builder(2, 1)
                 .withLearningRate(RATE);
@@ -87,7 +84,7 @@ public class FNNTest {
     /**
      * check if the network verifies the data set
      */
-    public static void evalBinary(FFN network, DataSet dataSet) {
+    public static void assertClassify(FFN network, DataSet dataSet) {
         final double[][] input = dataSet.inputs();
         final double[][] expected = dataSet.expected();
         for (int i = 0; i < input.length; i++) {

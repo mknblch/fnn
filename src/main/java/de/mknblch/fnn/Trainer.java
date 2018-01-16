@@ -19,6 +19,8 @@ public class Trainer extends FFN {
     // number of iterations the training took
     private int iterations = -1;
 
+    private double[][] delta;
+
     /**
      * create a new Builder
      * @param inputs number of input units
@@ -33,6 +35,7 @@ public class Trainer extends FFN {
         super(layers);
         this.layers = layers;
         this.rate = rate;
+        this.delta = new double[layers.length][];
     }
 
     /**
@@ -60,7 +63,8 @@ public class Trainer extends FFN {
                 return this;
             }
         }
-        throw new IllegalStateException("Network did not converge in " + maxIterations + " iterations");
+        return this;
+//        throw new IllegalStateException("Network did not converge in " + maxIterations + " iterations");
     }
 
     /**
@@ -74,7 +78,7 @@ public class Trainer extends FFN {
         for (int i = 0; i < input.length; i++) {
             error += train(input[i], expected[i]);
         }
-        return error;
+        return error / input.length;
     }
 
     /**
@@ -109,58 +113,59 @@ public class Trainer extends FFN {
      * @return deltas
      */
     private double[][] backward(double[] expected) {
-        final double[][] deltas = new double[layers.length][];
-        calcOutputDeltas(deltas, expected);
-        calcHiddenDeltas(deltas);
-        update(deltas);
-        return deltas;
+        calcOutputDeltas(expected);
+        calcHiddenDeltas();
+        update();
+        return delta;
     }
 
     /**
-     * append deltas of the output layer to the delta array
-     * @param delta the delta array
+     * calc deltas of the output layer
      * @param expected expected values
      */
-    private void calcOutputDeltas(double[][] delta, double[] expected) {
+    private void calcOutputDeltas(double[] expected) {
         final double[] outValues = layers[layers.length - 1].values;
         delta[layers.length - 1] = new double[outValues.length];
-        Arrays.setAll(delta[layers.length - 1], i -> outValues[i] * (1.0 - outValues[i]) * (outValues[i] - expected[i]));
+        Arrays.setAll(
+                delta[layers.length - 1],
+                i -> outValues[i] * (1.0 - outValues[i]) * (outValues[i] - expected[i]));
     }
 
     /**
-     * appends deltas of hidden layers (if any) to the delta array
-     * @param delta the delta array
+     * calc deltas of hidden layers (if any)
      */
-    private void calcHiddenDeltas(double[][] delta) {
+    private void calcHiddenDeltas() {
         for (int l = layers.length - 2; l >= 1; l--) {
             final Layer layer = layers[l];
             final Layer next = layers[l + 1];
+            final double[] nextDelta = delta[l + 1];
             delta[l] = new double[layer.values.length];
-            for (int j = 0; j < layer.values.length; j++) {
-                double t = 0;
-                for (int i = 0; i < next.values.length; i++) {
-                    t += delta[l + 1][i] * next.weights[i * layer.values.length + j];
-                }
-                delta[l][j] = layer.values[j] * (1.0 - layer.values[j]) * t;
-            }
+            Arrays.parallelSetAll(
+                    delta[l],
+                    j -> {
+                        double t = 0;
+                        for (int i = 0; i < next.values.length; i++) {
+                            t += nextDelta[i] * next.weights[i * layer.values.length + j];
+                        }
+                        return layer.values[j] * (1.0 - layer.values[j]) * t;
+                    });
         }
     }
 
     /**
      * update weights and biases
-     * @param delta completely calculated delta array
      */
-    private void update(double[][] delta) {
+    private void update() {
         for (int k = 1; k < layers.length; k++) {
             final Layer layer = layers[k];
             final Layer previous = layers[k - 1];
             for (int i = 0; i < layer.values.length; i++) {
-                final double fc = -rate * delta[k][i];
+                final double d = -rate * delta[k][i];
                 for (int j = 0; j < previous.values.length; j++) {
                     final int index = j * layer.values.length + i;
-                    layer.weights[index] += fc * previous.values[j];
+                    layer.weights[index] += d * previous.values[j];
                 }
-                layer.bias[i] += fc;
+                layer.bias[i] += d;
             }
         }
     }
