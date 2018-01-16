@@ -4,6 +4,7 @@ import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.function.IntToDoubleFunction;
 
 /**
  * Trainable Network
@@ -18,7 +19,7 @@ public class Trainer extends FFN {
     private final double rate;
     // number of iterations the training took
     private int iterations = -1;
-
+    // pre-allocated delta array for weight & bias updates
     private double[][] delta;
 
     /**
@@ -36,6 +37,9 @@ public class Trainer extends FFN {
         this.layers = layers;
         this.rate = rate;
         this.delta = new double[layers.length][];
+        for (int i = 0; i < layers.length; i++) {
+            delta[i] = new double[layers[i].values.length];
+        }
     }
 
     /**
@@ -56,27 +60,43 @@ public class Trainer extends FFN {
      * @throws IllegalStateException if iteration limit exceeds
      */
     public Trainer train(DataSet dataSet, double converge, int maxIterations) {
+        return train(dataSet, converge, maxIterations, false);
+    }
+
+    /**
+     * train the network with the given parameters
+     * @param dataSet the dataSet
+     * @param converge error threshold for convergence
+     * @param maxIterations maximum count of iterations before Exception is thrown
+     * @param parallel use {@link Arrays#parallelSetAll(double[], IntToDoubleFunction)} instead of
+     *                 {@link Arrays#setAll(double[], IntToDoubleFunction)} for updates
+     * @return itself for method chaining
+     * @throws IllegalStateException if iteration limit exceeds
+     */
+    public Trainer train(DataSet dataSet, double converge, int maxIterations, boolean parallel) {
         final double[][] inputs = dataSet.inputs();
         final double[][] expected = dataSet.expected();
         for (iterations = 0; iterations < maxIterations; iterations++) {
-            if (train(inputs, expected) <= converge) {
+            if (train(inputs, expected, parallel) <= converge) {
                 return this;
             }
         }
-        return this;
-//        throw new IllegalStateException("Network did not converge in " + maxIterations + " iterations");
+//        return this;
+        throw new IllegalStateException("Network did not converge in " + maxIterations + " iterations");
     }
 
     /**
      * do a single training step with a batch of values
      * @param input array of input arrays
      * @param expected array of expected output arrays
-     * @return sum of the errors of the output layer
+     * @param parallel use {@link Arrays#parallelSetAll(double[], IntToDoubleFunction)} instead of
+     *                 {@link Arrays#setAll(double[], IntToDoubleFunction)} for updates
+     * @return mean error of all inputs
      */
-    public double train(double[][] input, double[][] expected) {
+    public double train(double[][] input, double[][] expected, boolean parallel) {
         double error = 0;
         for (int i = 0; i < input.length; i++) {
-            error += train(input[i], expected[i]);
+            error += train(input[i], expected[i], parallel);
         }
         return error / input.length;
     }
@@ -85,11 +105,13 @@ public class Trainer extends FFN {
      * do a single training step with the given values
      * @param input the input values
      * @param expected expected values
+     * @param parallel use {@link Arrays#parallelSetAll(double[], IntToDoubleFunction)} instead of
+     *                 {@link Arrays#setAll(double[], IntToDoubleFunction)} for updates
      * @return error of last layer
      */
-    public double train(double[] input, double[] expected) {
+    public double train(double[] input, double[] expected, boolean parallel) {
         eval(input);
-        backward(expected);
+        backward(expected, parallel);
         return error(layers[layers.length - 1].values, expected);
     }
 
@@ -110,12 +132,14 @@ public class Trainer extends FFN {
     /**
      * backpropagation
      * @param expected expected values
+     * @param parallel use {@link Arrays#parallelSetAll(double[], IntToDoubleFunction)} instead of
+     *                 {@link Arrays#setAll(double[], IntToDoubleFunction)} for updates
      * @return deltas
      */
-    private double[][] backward(double[] expected) {
+    private double[][] backward(double[] expected, boolean parallel) {
         calcOutputDeltas(expected);
         calcHiddenDeltas();
-        update();
+        update(parallel);
         return delta;
     }
 
@@ -125,7 +149,6 @@ public class Trainer extends FFN {
      */
     private void calcOutputDeltas(double[] expected) {
         final double[] outValues = layers[layers.length - 1].values;
-        delta[layers.length - 1] = new double[outValues.length];
         Arrays.setAll(
                 delta[layers.length - 1],
                 i -> outValues[i] * (1.0 - outValues[i]) * (outValues[i] - expected[i]));
@@ -139,33 +162,34 @@ public class Trainer extends FFN {
             final Layer layer = layers[l];
             final Layer next = layers[l + 1];
             final double[] nextDelta = delta[l + 1];
-            delta[l] = new double[layer.values.length];
-            Arrays.parallelSetAll(
-                    delta[l],
-                    j -> {
-                        double t = 0;
-                        for (int i = 0; i < next.values.length; i++) {
-                            t += nextDelta[i] * next.weights[i * layer.values.length + j];
-                        }
-                        return layer.values[j] * (1.0 - layer.values[j]) * t;
-                    });
+            Arrays.setAll(delta[l], j -> {
+                double t = 0;
+                for (int i = 0; i < next.values.length; i++) {
+                    t += nextDelta[i] * next.weights[i * layer.values.length + j];
+                }
+                return layer.values[j] * (1.0 - layer.values[j]) * t;
+            });
         }
     }
 
     /**
      * update weights and biases
      */
-    private void update() {
-        for (int k = 1; k < layers.length; k++) {
-            final Layer layer = layers[k];
-            final Layer previous = layers[k - 1];
-            for (int i = 0; i < layer.values.length; i++) {
-                final double d = -rate * delta[k][i];
-                for (int j = 0; j < previous.values.length; j++) {
-                    final int index = j * layer.values.length + i;
-                    layer.weights[index] += d * previous.values[j];
-                }
-                layer.bias[i] += d;
+    private void update(boolean parallel) {
+        for (int l = 1; l < layers.length; l++) {
+            final Layer layer = layers[l];
+            final Layer previous = layers[l - 1];
+            final double[] currentDelta = delta[l];
+            Arrays.setAll(layer.bias,
+                    index -> layer.bias[index] - rate * currentDelta[index % layer.values.length]);
+            if (parallel) {
+                Arrays.parallelSetAll(
+                        layer.weights,
+                        index -> layer.weights[index] - rate * currentDelta[index % layer.values.length] * previous.values[index / layer.values.length]);
+            } else {
+                Arrays.setAll(
+                        layer.weights,
+                        index -> layer.weights[index] - rate * currentDelta[index % layer.values.length] * previous.values[index / layer.values.length]);
             }
         }
     }

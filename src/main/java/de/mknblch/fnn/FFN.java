@@ -1,6 +1,7 @@
 package de.mknblch.fnn;
 
 import java.util.Arrays;
+import java.util.function.IntToDoubleFunction;
 
 /**
  * Feedforward Network
@@ -34,9 +35,20 @@ public class FFN {
      * @return output of the network
      */
     public double[] eval(double[] input) {
+        return eval(input, false);
+    }
+
+    /**
+     * feed the network with given values
+     * @param input the input values
+     * @param parallel use {@link Arrays#parallelSetAll(double[], IntToDoubleFunction)} instead of
+     *                 {@link Arrays#setAll(double[], IntToDoubleFunction)}
+     * @return output of the network
+     */
+    public double[] eval(double[] input, boolean parallel) {
         layers[0].values = input;
         for (int i = 1; i < layers.length; i++) {
-            forward(i);
+            forward(i, parallel);
         }
         return layers[layers.length - 1].values;
     }
@@ -77,11 +89,29 @@ public class FFN {
      * do eval forward step for the given layer
      * @param layer the index of the layer
      */
-    private void forward(int layer) {
+    private void forward(int layer, boolean parallel) {
         final double[] bias = layers[layer].bias;
         final double[] values = layers[layer].values;
         final double[] weights = layers[layer].weights;
         final double[] precursor = layers[layer - 1].values;
+        if (parallel) {
+            parallelForward(values, precursor, bias, weights);
+        } else {
+            sequentialForward(values, precursor, bias, weights);
+        }
+    }
+
+    private void sequentialForward(double[] values, double[] precursor, double[] bias, double[] weights) {
+        Arrays.setAll(values, j -> {
+            double t = bias[j];
+            for (int i = 0; i < precursor.length; i++) {
+                t += precursor[i] * weights[i * values.length + j];
+            }
+            return sig(t);
+        });
+    }
+
+    private void parallelForward(double[] values, double[] precursor, double[] bias, double[] weights) {
         Arrays.parallelSetAll(values, j -> {
             double t = bias[j];
             for (int i = 0; i < precursor.length; i++) {
