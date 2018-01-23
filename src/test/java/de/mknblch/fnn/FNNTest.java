@@ -82,7 +82,7 @@ public class FNNTest {
     /**
      * check if the network verifies the data set
      */
-    public static void assertClassify(FFN network, DataSet dataSet) {
+    public static void assertClassify(FNN network, DataSet dataSet) {
         final double[][] input = dataSet.inputs();
         final double[][] expected = dataSet.expected();
         for (int i = 0; i < input.length; i++) {

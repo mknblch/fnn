@@ -8,7 +8,7 @@ import java.util.function.IntToDoubleFunction;
  *
  * @author mknblch
  */
-public class FFN {
+public class FNN {
 
     // layer array including input and output layers
     final Layer[] layers;
@@ -17,7 +17,7 @@ public class FFN {
      * build a network with given (2 or more) layers
      * @param layers the network layers
      */
-    FFN(Layer[] layers) {
+    FNN(Layer[] layers) {
         this.layers = layers;
     }
 

@@ -11,7 +11,7 @@ import java.util.function.IntToDoubleFunction;
  *
  * @author mknblch
  */
-public class Trainer extends FFN {
+public class Trainer extends FNN {
 
     // layer array including input and output layers
     private final Layer[] layers;
