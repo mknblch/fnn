@@ -1,6 +1,8 @@
 package de.mknblch.fnn;
 
 import java.util.Arrays;
+import java.util.function.DoubleFunction;
+import java.util.function.DoubleUnaryOperator;
 import java.util.function.IntToDoubleFunction;
 
 /**
@@ -12,6 +14,11 @@ public class FNN {
 
     // layer array including input and output layers
     final Layer[] layers;
+
+    /**
+     * sigmoid function
+     */
+    DoubleUnaryOperator activationFunction = (x) -> 1.0 / (1.0 + Math.exp(-x));
 
     /**
      * build a network with given (2 or more) layers
@@ -53,6 +60,11 @@ public class FNN {
         return layers[layers.length - 1].values;
     }
 
+    public FNN withActivationFunction(DoubleUnaryOperator activationFunction) {
+        this.activationFunction = activationFunction;
+        return this;
+    }
+
     /**
      * get current output of the last layer
      * @return output of the layer
@@ -90,14 +102,10 @@ public class FNN {
      * @param layer the index of the layer
      */
     private void forward(int layer, boolean parallel) {
-        final double[] bias = layers[layer].bias;
-        final double[] values = layers[layer].values;
-        final double[] weights = layers[layer].weights;
-        final double[] precursor = layers[layer - 1].values;
         if (parallel) {
-            parallelForward(values, precursor, bias, weights);
+            parallelForward(layers[layer].values, layers[layer - 1].values, layers[layer].bias, layers[layer].weights);
         } else {
-            sequentialForward(values, precursor, bias, weights);
+            sequentialForward(layers[layer].values, layers[layer - 1].values, layers[layer].bias, layers[layer].weights);
         }
     }
 
@@ -107,7 +115,7 @@ public class FNN {
             for (int i = 0; i < precursor.length; i++) {
                 t += precursor[i] * weights[i * values.length + j];
             }
-            return sig(t);
+            return activationFunction.applyAsDouble(t);
         });
     }
 
@@ -117,18 +125,10 @@ public class FNN {
             for (int i = 0; i < precursor.length; i++) {
                 t += precursor[i] * weights[i * values.length + j];
             }
-            return sig(t);
+            return activationFunction.applyAsDouble(t);
         });
     }
 
-    /**
-     * sigmoid function
-     * @param x parameter
-     * @return sig(x)
-     */
-    private static double sig(double x) {
-        return 1.0 / (1.0 + Math.exp(-x));
-    }
 
     /**
      * simple VO representing one layer of neurons
